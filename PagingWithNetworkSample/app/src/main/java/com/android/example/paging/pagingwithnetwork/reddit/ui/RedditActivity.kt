@@ -30,6 +30,7 @@ import com.android.example.paging.pagingwithnetwork.reddit.ServiceLocator
 import com.android.example.paging.pagingwithnetwork.reddit.repository.NetworkState
 import com.android.example.paging.pagingwithnetwork.reddit.repository.RedditPostRepository
 import kotlinx.android.synthetic.main.activity_reddit.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
@@ -77,7 +78,9 @@ class RedditActivity : AppCompatActivity() {
         val adapter = PostsAdapter(glide)
         list.adapter = adapter
         lifecycleScope.launch {
-            adapter.connect(model.posts.asFlow(), lifecycleScope)
+            model.posts.asFlow().collect {
+                adapter.collectFrom(it)
+            }
         }
 
         model.networkState.observe(this, Observer {
@@ -120,11 +123,10 @@ class RedditActivity : AppCompatActivity() {
 
     private fun updatedSubredditFromInput() {
         input.text.trim().toString().let {
-            if (it.isNotEmpty()) {
-                if (model.showSubreddit(it)) {
-                    list.scrollToPosition(0)
-                    // TODO: No API to clear list yet.
-                    //  (list.adapter as? PostsAdapter)?.submitList(null)
+            if (it.isNotEmpty() && model.showSubreddit(it)) {
+                list.scrollToPosition(0)
+                lifecycleScope.launch {
+                    (list.adapter as? PostsAdapter)?.setItems(emptyList())
                 }
             }
         }
